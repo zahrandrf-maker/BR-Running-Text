@@ -1,1 +1,37 @@
+name: Build BR Running Text
 
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths-ignore: [ "README.md" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -A x64 -DFFGL_BUILD_EXAMPLE_PLUGINS=OFF -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+
+      - name: Build Release
+        run: cmake --build build --config Release --parallel
+
+      - name: Prepare package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          Copy-Item "build/plugin/BR Running Text.dll" "out/BR Running Text.dll"
+          Copy-Item "README.md" "out/README.txt"
+
+      - name: Upload plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: BR-Running-Text-Windows-v0.1-beta
+          path: out/*
+          if-no-files-found: error
