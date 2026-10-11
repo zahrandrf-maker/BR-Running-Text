@@ -58,7 +58,7 @@ static CFFGLPluginInfo PluginInfo(
   "Running text, credits and lower thirds by BELAJAR RESOLUME",
   "Effect by Belajar Resolume");
 
-float clamp01(float v) { return std::max(0.0f, std::min(1.0f, v)); }
+float brClamp01(float v) { return std::max(0.0f, std::min(1.0f, v)); }
 
 std::wstring utf8ToWide(const std::string& value) {
   if (value.empty()) return L"";
@@ -271,7 +271,7 @@ void BRRunningText::rebuildTextTexture(){
   textWidth_=std::min(textWidth_,8192u); textHeight_=std::min(textHeight_,8192u);
   Bitmap bmp(textWidth_,textHeight_,PixelFormat32bppARGB); Graphics g(&bmp); g.SetSmoothingMode(SmoothingModeAntiAlias); g.SetTextRenderingHint(TextRenderingHintAntiAliasGridFit); g.Clear(Color(0,0,0,0));
   GraphicsPath draw; draw.AddString(content.c_str(),-1,family,FontStyleRegular,fontPx,PointF(4-bounds.X+stroke*2,4-bounds.Y+stroke*2),&format);
-  auto hsbaToColor=[&](int h,int s,int b,int a){ float rgb[3]; HSVtoRGB(values_[h],values_[s],values_[b],rgb[0],rgb[1],rgb[2]); return Color(BYTE(clamp01(values_[a])*255),BYTE(clamp01(rgb[0])*255),BYTE(clamp01(rgb[1])*255),BYTE(clamp01(rgb[2])*255)); };
+  auto hsbaToColor=[&](int h,int s,int b,int a){ float rgb[3]; HSVtoRGB(values_[h],values_[s],values_[b],rgb[0],rgb[1],rgb[2]); return Color(BYTE(brClamp01(values_[a])*255),BYTE(brClamp01(rgb[0])*255),BYTE(brClamp01(rgb[1])*255),BYTE(brClamp01(rgb[2])*255)); };
   if(stroke>0){ Pen pen(hsbaToColor(P_TEXT_STROKE_H,P_TEXT_STROKE_S,P_TEXT_STROKE_B,P_TEXT_STROKE_A),stroke); pen.SetLineJoin(LineJoinRound); g.DrawPath(&pen,&draw); }
   SolidBrush fill(hsbaToColor(P_TEXT_H,P_TEXT_S,P_TEXT_B,P_TEXT_A)); g.FillPath(&fill,&draw);
   Rect lockRect(0,0,textWidth_,textHeight_); BitmapData data{}; bmp.LockBits(&lockRect,ImageLockModeRead,PixelFormat32bppARGB,&data);
@@ -286,7 +286,7 @@ FFResult BRRunningText::ProcessOpenGL(ProcessOpenGLStruct*){
   float padX=values_[P_PAD_X]*viewportWidth_*0.25f, padY=values_[P_PAD_Y]*viewportHeight_*0.25f;
   int mode=int(values_[P_BOX_MODE]+0.5f); if(mode==0){boxW=textWidth_+2*padX; boxH=textHeight_+2*padY;} else if(mode==1) boxH=textHeight_+2*padY;
   boxW=std::max(boxW,8.0f); boxH=std::max(boxH,8.0f);
-  auto ease=[](float t,int m){t=clamp01(t); if(m==1)return t*t; if(m==2)return 1-(1-t)*(1-t); if(m==3)return t*t*(3-2*t); return t;};
+  auto ease=[](float t,int m){t=brClamp01(t); if(m==1)return t*t; if(m==2)return 1-(1-t)*(1-t); if(m==3)return t*t*(3-2*t); return t;};
   float inOffsetX=0,inOffsetY=0; double t=elapsed_;
   if(values_[P_ANIM_IN]>0.5f){float delay=values_[P_IN_DELAY]*5, dur=0.05f+values_[P_IN_DURATION]*5; float k=ease(float((t-delay)/dur),int(values_[P_IN_EASE]+.5f)); float dist=values_[P_IN_DISTANCE]*(values_[P_IN_AXIS]<.5f?viewportWidth_:viewportHeight_); float off=(1-k)*dist*(values_[P_IN_INVERT]>.5f?1:-1); if(values_[P_IN_AXIS]<.5f)inOffsetX=off;else inOffsetY=off;}
   bool autoOut=values_[P_OUT_TRIGGER]>.5f; float inEnd=values_[P_IN_DELAY]*5+0.05f+values_[P_IN_DURATION]*5; float outStart=autoOut?inEnd+values_[P_HOLD_DURATION]*20+values_[P_OUT_DELAY]*5:0;
@@ -315,4 +315,4 @@ FFResult BRRunningText::SetFloatParameter(unsigned int i,float v){
 }
 float BRRunningText::GetFloatParameter(unsigned int i){return i<P_COUNT?values_[i]:0;}
 FFResult BRRunningText::SetTextParameter(unsigned int i,const char* v){if(i==P_TEXT){text_=v?v:"";textureDirty_=true;return FF_SUCCESS;}if(i==P_FONT_NAME){fontName_=v?v:"Arial";textureDirty_=true;return FF_SUCCESS;}return FF_FAIL;}
-char* BRRunningText::GetTextParameter(unsigned int i){static char buffer[8192];const std::string* s=i==P_TEXT?&text_:i==P_FONT_NAME?&fontName_:&credit_;std::strncpy(buffer,s->c_str(),sizeof(buffer)-1);buffer[sizeof(buffer)-1]=0;return buffer;}
+char* BRRunningText::GetTextParameter(unsigned int i){static char buffer[8192];const std::string* s=i==P_TEXT?&text_:i==P_FONT_NAME?&fontName_:&credit_;const size_t length=std::min(s->size(),sizeof(buffer)-1);std::memcpy(buffer,s->data(),length);buffer[length]=0;return buffer;}
