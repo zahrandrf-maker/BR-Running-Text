@@ -17,10 +17,23 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Configure
-        run: cmake -S . -B build -A x64 -DFFGL_BUILD_EXAMPLE_PLUGINS=OFF -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+        run: cmake -S . -B build -A x64 -DFFGL_BUILD_EXAMPLE_PLUGINS=OFF -DVCPKG_TARGET_TRIPLET=x64-windows-static -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
 
       - name: Build Release
         run: cmake --build build --config Release --parallel
+
+      - name: Verify FFGL plugin
+        shell: pwsh
+        run: |
+          $dll = "build/plugin/BR Running Text.dll"
+          if (-not (Test-Path $dll)) { throw "Plugin DLL was not produced" }
+          $dumpbin = Get-ChildItem "C:/Program Files/Microsoft Visual Studio/2022/*/VC/Tools/MSVC/*/bin/Hostx64/x64/dumpbin.exe" | Select-Object -Last 1
+          if (-not $dumpbin) { throw "dumpbin.exe was not found" }
+          $exports = & $dumpbin.FullName /EXPORTS $dll | Out-String
+          if ($exports -notmatch "plugMain") { throw "Invalid FFGL DLL: plugMain export is missing" }
+          $dependencies = & $dumpbin.FullName /DEPENDENTS $dll | Out-String
+          if ($dependencies -match "glew32.dll") { throw "Plugin still depends on external glew32.dll" }
+          Write-Host "FFGL export and standalone dependencies verified."
 
       - name: Prepare package
         shell: pwsh
@@ -32,6 +45,6 @@ jobs:
       - name: Upload plugin
         uses: actions/upload-artifact@v4
         with:
-          name: BR-Running-Text-Windows-v0.1.1-beta
+          name: BR-Running-Text-Windows-v0.1.8-beta
           path: out/*
           if-no-files-found: error
