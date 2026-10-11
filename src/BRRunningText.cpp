@@ -31,18 +31,19 @@ using namespace ffglex;
 
 namespace {
 enum Param : FFUInt32 {
+  P_START, P_PAUSE, P_RESUME, P_END, P_PLAYBACK_STYLE,
+  P_MOTION, P_SPEED, P_LOOP_GAP, P_EDGE_DELAY, P_RESET,
   P_TEXT, P_FONT_NAME, P_FONT_LIST, P_REFRESH_FONTS,
   P_FONT_SIZE, P_ALIGN, P_LETTER_SPACING, P_LINE_SPACING,
   P_TEXT_H, P_TEXT_S, P_TEXT_B, P_TEXT_A,
-  P_TEXT_STROKE, P_TEXT_STROKE_WIDTH, P_TEXT_STROKE_H, P_TEXT_STROKE_S,
+  P_TEXT_STROKE, P_TEXT_STROKE_WIDTH, P_TEXT_STROKE_SCALE, P_TEXT_STROKE_H, P_TEXT_STROKE_S,
   P_TEXT_STROKE_B, P_TEXT_STROKE_A,
   P_BOX_MODE, P_BOX_WIDTH, P_BOX_HEIGHT, P_PAD_X, P_PAD_Y,
-  P_BOX_H, P_BOX_S, P_BOX_B, P_BOX_A, P_RADIUS,
+  P_BOX_H, P_BOX_S, P_BOX_B, P_BOX_A, P_BOX_OPACITY, P_RADIUS,
   P_BOX_STROKE, P_BOX_STROKE_WIDTH, P_BOX_STROKE_H, P_BOX_STROKE_S,
   P_BOX_STROKE_B, P_BOX_STROKE_A, P_BOX_STROKE_POSITION,
   P_BOX_STROKE_OFFSET_X, P_BOX_STROKE_OFFSET_Y,
   P_POS_X, P_POS_Y, P_SCALE, P_ROTATION,
-  P_MOTION, P_SPEED, P_START, P_PAUSE, P_END, P_LOOP_GAP, P_EDGE_DELAY, P_RESET,
   P_FLICKER, P_FLICKER_SPEED, P_FLICKER_AMOUNT, P_FLICKER_MIN,
   P_WIGGLE, P_WIGGLE_X, P_WIGGLE_Y, P_WIGGLE_ROTATION, P_WIGGLE_SPEED,
   P_ANIM_IN, P_IN_AXIS, P_IN_INVERT, P_IN_DISTANCE, P_IN_DURATION, P_IN_DELAY, P_IN_EASE,
@@ -53,8 +54,8 @@ enum Param : FFUInt32 {
 };
 
 static CFFGLPluginInfo PluginInfo(
-  PluginFactory<BRRunningText>, "BRRT", "BR Running Text",
-  2, 1, 0, 200, FF_SOURCE,
+  PluginFactory<BRRunningText>, "BRR2", "BR Running Text",
+  2, 1, 0, 201, FF_SOURCE,
   "Running text, credits and lower thirds by BELAJAR RESOLUME",
   "Effect by Belajar Resolume");
 
@@ -68,6 +69,12 @@ std::wstring utf8ToWide(const std::string& value) {
   MultiByteToWideChar(CP_UTF8, 0, value.c_str(), -1, out.data(), count);
   out.pop_back();
   return out;
+}
+
+std::string expandLineBreaks(std::string value) {
+  size_t position=0;
+  while((position=value.find("\\n",position))!=std::string::npos){value.replace(position,2,"\n");++position;}
+  return value;
 }
 
 std::string wideToUtf8(const std::wstring& value) {
@@ -171,13 +178,14 @@ void main(){
     }
     vec2 tuv=tw/max(textSize,vec2(1.0));
     if(all(greaterThanEqual(tuv,vec2(0.0))) && all(lessThanEqual(tuv,vec2(1.0)))){
+      tuv.y=1.0-tuv.y;
       vec4 txt=texture(textTex,tuv);
       float cell=floor(tw.x/max(textSize.y*0.45,8.0));
       float f=1.0;
       if(flickerMode==1.0) f=mix(1.0,smoothstep(0.0,1.0,0.5+0.5*sin(elapsed*flickerSpeed-cell*0.7)),flickerAmount);
       else if(flickerMode==2.0){ float tick=floor(elapsed*flickerSpeed); f=mix(1.0,mix(flickerMinimum,1.0,hash(cell*17.0+tick)),flickerAmount); }
       else if(flickerMode==3.0) f=mix(1.0,mix(flickerMinimum,1.0,0.5+0.5*sin(elapsed*flickerSpeed)),flickerAmount);
-      txt.a*=max(f,flickerMinimum);
+      txt*=max(f,flickerMinimum);
       result=txt+result*(1.0-txt.a);
     }
   }
@@ -193,9 +201,9 @@ BRRunningText::BRRunningText() : values_(P_COUNT, 0.0f) {
 
   values_[P_FONT_SIZE]=0.105f; values_[P_ALIGN]=1.0f; values_[P_LINE_SPACING]=0.5f;
   values_[P_TEXT_B]=1.0f; values_[P_TEXT_A]=1.0f;
-  values_[P_TEXT_STROKE_WIDTH]=0.08f; values_[P_TEXT_STROKE_B]=0.0f; values_[P_TEXT_STROKE_A]=1.0f;
+  values_[P_TEXT_STROKE_WIDTH]=0.08f; values_[P_TEXT_STROKE_SCALE]=0.27f; values_[P_TEXT_STROKE_B]=0.0f; values_[P_TEXT_STROKE_A]=1.0f;
   values_[P_BOX_MODE]=1.0f; values_[P_BOX_WIDTH]=0.75f; values_[P_BOX_HEIGHT]=0.18f;
-  values_[P_PAD_X]=0.03f; values_[P_PAD_Y]=0.025f; values_[P_BOX_B]=0.12f; values_[P_BOX_A]=0.85f; values_[P_RADIUS]=0.04f;
+  values_[P_PAD_X]=0.03f; values_[P_PAD_Y]=0.025f; values_[P_BOX_B]=0.12f; values_[P_BOX_A]=1.0f; values_[P_BOX_OPACITY]=0.85f; values_[P_RADIUS]=0.04f;
   values_[P_BOX_STROKE_WIDTH]=0.02f; values_[P_BOX_STROKE_B]=1.0f; values_[P_BOX_STROKE_A]=1.0f;
   values_[P_BOX_STROKE_POSITION]=1.0f;
   values_[P_BOX_STROKE_OFFSET_X]=0.5f; values_[P_BOX_STROKE_OFFSET_Y]=0.5f;
@@ -205,7 +213,12 @@ BRRunningText::BRRunningText() : values_(P_COUNT, 0.0f) {
   values_[P_IN_DISTANCE]=1.0f; values_[P_IN_DURATION]=0.25f; values_[P_OUT_DISTANCE]=1.0f;
   values_[P_OUT_DURATION]=0.25f; values_[P_HOLD_DURATION]=0.5f;
 
-  SetParamInfo(P_TEXT,"01 Text",FF_TYPE_TEXT,text_.c_str());
+  SetParamInfof(P_START,"Start",FF_TYPE_EVENT); SetParamInfof(P_PAUSE,"Pause",FF_TYPE_EVENT); SetParamInfof(P_RESUME,"Resume",FF_TYPE_EVENT); SetParamInfof(P_END,"End",FF_TYPE_EVENT);
+  SetOptionParamInfo(P_PLAYBACK_STYLE,"Playback",2,0); addOption(P_PLAYBACK_STYLE,0,"Loop",0); addOption(P_PLAYBACK_STYLE,1,"Bounce",1);
+  SetOptionParamInfo(P_MOTION,"Direction",5,1); const char* motions[]={"Static","Left","Right","Up Credit","Down Credit"}; for(unsigned i=0;i<5;++i)addOption(P_MOTION,i,motions[i],float(i));
+  SetParamInfof(P_SPEED,"Speed",FF_TYPE_STANDARD); SetParamInfof(P_LOOP_GAP,"Loop Gap",FF_TYPE_STANDARD); SetParamInfof(P_EDGE_DELAY,"Edge Delay",FF_TYPE_STANDARD); SetParamInfof(P_RESET,"Restart",FF_TYPE_EVENT);
+
+  SetParamInfo(P_TEXT,"01 Text (use \\n for new line)",FF_TYPE_TEXT,text_.c_str());
   SetParamInfo(P_FONT_NAME,"02 Font Search or Name",FF_TYPE_TEXT,fontName_.c_str());
   SetOptionParamInfo(P_FONT_LIST,"03 Installed Font",static_cast<unsigned int>(std::max<size_t>(fonts_.size(),1)),0.0f);
   if(fonts_.empty()) addOption(P_FONT_LIST,0,"Arial",0); else for(unsigned int i=0;i<fonts_.size();++i) addOption(P_FONT_LIST,i,fonts_[i].c_str(),float(i));
@@ -214,19 +227,17 @@ BRRunningText::BRRunningText() : values_(P_COUNT, 0.0f) {
   SetOptionParamInfo(P_ALIGN,"06 Align",3,1); addOption(P_ALIGN,0,"Left",0); addOption(P_ALIGN,1,"Center",1); addOption(P_ALIGN,2,"Right",2);
   SetParamInfof(P_LETTER_SPACING,"07 Letter Spacing",FF_TYPE_STANDARD); SetParamInfof(P_LINE_SPACING,"08 Line Spacing",FF_TYPE_STANDARD);
   SetParamInfof(P_TEXT_H,"09 Text Color",FF_TYPE_HUE); SetParamInfof(P_TEXT_S,"09 Text Color Sat",FF_TYPE_SATURATION); SetParamInfof(P_TEXT_B,"09 Text Color Bri",FF_TYPE_BRIGHTNESS); SetParamInfof(P_TEXT_A,"09 Text Color Alpha",FF_TYPE_ALPHA);
-  SetParamInfof(P_TEXT_STROKE,"10 Text Stroke",FF_TYPE_BOOLEAN); SetParamInfof(P_TEXT_STROKE_WIDTH,"11 Text Stroke Width",FF_TYPE_STANDARD);
+  SetParamInfof(P_TEXT_STROKE,"10 Text Stroke",FF_TYPE_BOOLEAN); SetParamInfof(P_TEXT_STROKE_WIDTH,"11 Text Stroke Width",FF_TYPE_STANDARD); SetParamInfof(P_TEXT_STROKE_SCALE,"12 Stroke Scale",FF_TYPE_STANDARD);
   SetParamInfof(P_TEXT_STROKE_H,"12 Stroke Color",FF_TYPE_HUE); SetParamInfof(P_TEXT_STROKE_S,"12 Stroke Color Sat",FF_TYPE_SATURATION); SetParamInfof(P_TEXT_STROKE_B,"12 Stroke Color Bri",FF_TYPE_BRIGHTNESS); SetParamInfof(P_TEXT_STROKE_A,"12 Stroke Color Alpha",FF_TYPE_ALPHA);
   SetOptionParamInfo(P_BOX_MODE,"13 Box Size Mode",3,1); addOption(P_BOX_MODE,0,"Auto Size",0); addOption(P_BOX_MODE,1,"Auto Height",1); addOption(P_BOX_MODE,2,"Custom Size",2);
   SetParamInfof(P_BOX_WIDTH,"14 Box Width",FF_TYPE_STANDARD); SetParamInfof(P_BOX_HEIGHT,"15 Box Height",FF_TYPE_STANDARD); SetParamInfof(P_PAD_X,"16 Padding Left Right",FF_TYPE_STANDARD); SetParamInfof(P_PAD_Y,"17 Padding Top Bottom",FF_TYPE_STANDARD);
-  SetParamInfof(P_BOX_H,"18 Box Color",FF_TYPE_HUE); SetParamInfof(P_BOX_S,"18 Box Color Sat",FF_TYPE_SATURATION); SetParamInfof(P_BOX_B,"18 Box Color Bri",FF_TYPE_BRIGHTNESS); SetParamInfof(P_BOX_A,"18 Box Color Alpha",FF_TYPE_ALPHA); SetParamInfof(P_RADIUS,"19 Corner Radius",FF_TYPE_STANDARD);
+  SetParamInfof(P_BOX_H,"18 Box Color",FF_TYPE_HUE); SetParamInfof(P_BOX_S,"18 Box Color Sat",FF_TYPE_SATURATION); SetParamInfof(P_BOX_B,"18 Box Color Bri",FF_TYPE_BRIGHTNESS); SetParamInfof(P_BOX_A,"18 Box Color Alpha",FF_TYPE_ALPHA); SetParamInfof(P_BOX_OPACITY,"19 Box Opacity",FF_TYPE_STANDARD); SetParamInfof(P_RADIUS,"20 Corner Radius",FF_TYPE_STANDARD);
   SetParamInfof(P_BOX_STROKE,"20 Box Stroke",FF_TYPE_BOOLEAN); SetParamInfof(P_BOX_STROKE_WIDTH,"21 Box Stroke Width",FF_TYPE_STANDARD);
   SetParamInfof(P_BOX_STROKE_H,"22 Box Stroke Color",FF_TYPE_HUE); SetParamInfof(P_BOX_STROKE_S,"22 Box Stroke Sat",FF_TYPE_SATURATION); SetParamInfof(P_BOX_STROKE_B,"22 Box Stroke Bri",FF_TYPE_BRIGHTNESS); SetParamInfof(P_BOX_STROKE_A,"22 Box Stroke Alpha",FF_TYPE_ALPHA);
   SetOptionParamInfo(P_BOX_STROKE_POSITION,"23 Stroke Position",3,1); addOption(P_BOX_STROKE_POSITION,0,"Inside",0); addOption(P_BOX_STROKE_POSITION,1,"Center",1); addOption(P_BOX_STROKE_POSITION,2,"Outside",2);
   SetParamInfof(P_BOX_STROKE_OFFSET_X,"24 Stroke Offset X",FF_TYPE_STANDARD); SetParamInfof(P_BOX_STROKE_OFFSET_Y,"25 Stroke Offset Y",FF_TYPE_STANDARD);
   SetParamInfof(P_POS_X,"26 Position X",FF_TYPE_XPOS); SetParamInfof(P_POS_Y,"27 Position Y",FF_TYPE_YPOS); SetParamInfof(P_SCALE,"28 Scale",FF_TYPE_STANDARD);
   SetOptionParamInfo(P_ROTATION,"29 Rotation",4,0); addOption(P_ROTATION,0,"0 degrees",0); addOption(P_ROTATION,1,"90 degrees",1); addOption(P_ROTATION,2,"180 degrees",2); addOption(P_ROTATION,3,"270 degrees",3);
-  SetOptionParamInfo(P_MOTION,"30 Motion",7,1); const char* motions[]={"Static","Left","Right","Up Credit","Down Credit","Bounce Horizontal","Bounce Vertical"}; for(unsigned i=0;i<7;++i)addOption(P_MOTION,i,motions[i],float(i));
-  SetParamInfof(P_SPEED,"31 Motion Speed",FF_TYPE_STANDARD); SetParamInfof(P_START,"32 Start",FF_TYPE_EVENT); SetParamInfof(P_PAUSE,"33 Pause Resume",FF_TYPE_EVENT); SetParamInfof(P_END,"34 End",FF_TYPE_EVENT); SetParamInfof(P_LOOP_GAP,"35 Loop Gap",FF_TYPE_STANDARD); SetParamInfof(P_EDGE_DELAY,"36 Edge Delay",FF_TYPE_STANDARD); SetParamInfof(P_RESET,"37 Reset Position",FF_TYPE_EVENT);
   SetOptionParamInfo(P_FLICKER,"36 Flicker",4,0); addOption(P_FLICKER,0,"Off",0); addOption(P_FLICKER,1,"Sequential",1); addOption(P_FLICKER,2,"Random",2); addOption(P_FLICKER,3,"All",3);
   SetParamInfof(P_FLICKER_SPEED,"37 Flicker Speed",FF_TYPE_STANDARD); SetParamInfof(P_FLICKER_AMOUNT,"38 Flicker Amount",FF_TYPE_STANDARD); SetParamInfof(P_FLICKER_MIN,"39 Flicker Minimum",FF_TYPE_STANDARD);
   SetParamInfof(P_WIGGLE,"40 Wiggle",FF_TYPE_BOOLEAN); SetParamInfof(P_WIGGLE_X,"41 Wiggle X",FF_TYPE_STANDARD); SetParamInfof(P_WIGGLE_Y,"42 Wiggle Y",FF_TYPE_STANDARD); SetParamInfof(P_WIGGLE_ROTATION,"43 Wiggle Rotation",FF_TYPE_STANDARD); SetParamInfof(P_WIGGLE_SPEED,"44 Wiggle Speed",FF_TYPE_STANDARD);
@@ -236,9 +247,9 @@ BRRunningText::BRRunningText() : values_(P_COUNT, 0.0f) {
   SetOptionParamInfo(P_OUT_EASE,"58 Out Easing",4,3); for(unsigned i=0;i<4;++i)addOption(P_OUT_EASE,i,ease[i],float(i)); SetOptionParamInfo(P_OUT_TRIGGER,"59 Out Trigger",2,0); addOption(P_OUT_TRIGGER,0,"Manual",0); addOption(P_OUT_TRIGGER,1,"Auto Timer",1); SetParamInfof(P_HOLD_DURATION,"60 Hold Duration",FF_TYPE_STANDARD); SetParamInfof(P_PLAY_OUT,"61 Play Out",FF_TYPE_EVENT);
   SetParamInfof(P_CREDIT,"Effect by Belajar Resolume",FF_TYPE_EVENT);
 
+  for(unsigned int i=P_START;i<=P_RESET;++i) SetParamGroup(i,"Animation");
   for(unsigned int i=P_TEXT;i<=P_TEXT_STROKE_A;++i) SetParamGroup(i,"Text Setting");
   for(unsigned int i=P_BOX_MODE;i<=P_ROTATION;++i) SetParamGroup(i,"Box Setting");
-  for(unsigned int i=P_MOTION;i<=P_RESET;++i) SetParamGroup(i,"Animation");
   for(unsigned int i=P_FLICKER;i<=P_WIGGLE_SPEED;++i) SetParamGroup(i,"Effect");
   for(unsigned int i=P_ANIM_IN;i<=P_PLAY_OUT;++i) SetParamGroup(i,"Animation In Out");
   SetParamGroup(P_CREDIT,"BELAJAR RESOLUME");
@@ -265,14 +276,15 @@ void BRRunningText::releaseTextTexture(){ if(textTexture_){ glDeleteTextures(1,&
 void BRRunningText::rebuildTextTexture(){
   textureDirty_=false; releaseTextTexture();
   const float fontPx=18.0f+values_[P_FONT_SIZE]*220.0f;
-  std::wstring content=utf8ToWide(text_); if(content.empty()) content=L" ";
+  std::wstring content=utf8ToWide(expandLineBreaks(text_)); if(content.empty()) content=L" ";
   std::wstring familyName=utf8ToWide(fontName_); FontFamily selectedFamily(familyName.c_str()); FontFamily fallbackFamily(L"Arial");
   FontFamily* family=selectedFamily.IsAvailable()?&selectedFamily:&fallbackFamily;
   StringFormat format(StringFormat::GenericTypographic()); format.SetFormatFlags(StringFormatFlagsMeasureTrailingSpaces);
   Bitmap measure(16,16,PixelFormat32bppARGB); Graphics mg(&measure); GraphicsPath path;
   path.AddString(content.c_str(),-1,family,FontStyleRegular,fontPx,PointF(0,0),&format);
   RectF bounds; path.GetBounds(&bounds);
-  float stroke=values_[P_TEXT_STROKE]>0.5f ? 1.0f+values_[P_TEXT_STROKE_WIDTH]*18.0f : 0.0f;
+  float strokeScale=0.25f+values_[P_TEXT_STROKE_SCALE]*2.75f;
+  float stroke=values_[P_TEXT_STROKE]>0.5f ? (1.0f+values_[P_TEXT_STROKE_WIDTH]*18.0f)*strokeScale : 0.0f;
   textWidth_=std::max(2u,static_cast<unsigned int>(std::ceil(bounds.Width+stroke*4+8)));
   textHeight_=std::max(2u,static_cast<unsigned int>(std::ceil(bounds.Height+stroke*4+8)));
   textWidth_=std::min(textWidth_,8192u); textHeight_=std::min(textHeight_,8192u);
@@ -305,8 +317,9 @@ FFResult BRRunningText::ProcessOpenGL(ProcessOpenGLStruct*){
   ScopedShaderBinding bind(shader_.GetGLID()); glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D,textTexture_);
   auto u=[&](const char* n){return shader_.FindUniform(n);};
   glUniform1i(u("textTex"),0); glUniform2f(u("resolution"),float(viewportWidth_),float(viewportHeight_)); glUniform2f(u("textSize"),float(textWidth_),float(textHeight_)); glUniform2f(u("boxSize"),boxW,boxH); glUniform2f(u("boxCenter"),values_[P_POS_X]*viewportWidth_,(1-values_[P_POS_Y])*viewportHeight_); glUniform2f(u("paddingPx"),padX,padY);
-  glUniform4f(u("boxColor"),boxRgb[0],boxRgb[1],boxRgb[2],values_[P_BOX_A]); glUniform4f(u("boxStrokeColor"),strokeRgb[0],strokeRgb[1],strokeRgb[2],values_[P_BOX_STROKE_A]); glUniform1f(u("radiusPx"),values_[P_RADIUS]*std::min(boxW,boxH)*.5f); glUniform1f(u("boxStrokeWidth"),values_[P_BOX_STROKE_WIDTH]*30); glUniform2f(u("boxStrokeOffset"),(values_[P_BOX_STROKE_OFFSET_X]-.5f)*100,(values_[P_BOX_STROKE_OFFSET_Y]-.5f)*100); glUniform1f(u("boxStrokeEnabled"),values_[P_BOX_STROKE]); glUniform1f(u("strokePosition"),values_[P_BOX_STROKE_POSITION]);
-  glUniform1f(u("rotationRad"),values_[P_ROTATION]*1.57079632679f); glUniform1f(u("globalScale"),.25f+values_[P_SCALE]*1.5f); glUniform1f(u("elapsed"),float(elapsed_)); glUniform1f(u("motionMode"),values_[P_MOTION]); glUniform1f(u("motionSpeed"),20+values_[P_SPEED]*600); glUniform1f(u("loopGap"),values_[P_LOOP_GAP]*viewportWidth_*.5f);
+  glUniform4f(u("boxColor"),boxRgb[0],boxRgb[1],boxRgb[2],values_[P_BOX_A]*values_[P_BOX_OPACITY]); glUniform4f(u("boxStrokeColor"),strokeRgb[0],strokeRgb[1],strokeRgb[2],values_[P_BOX_STROKE_A]); glUniform1f(u("radiusPx"),values_[P_RADIUS]*std::min(boxW,boxH)*.5f); glUniform1f(u("boxStrokeWidth"),values_[P_BOX_STROKE_WIDTH]*30); glUniform2f(u("boxStrokeOffset"),(values_[P_BOX_STROKE_OFFSET_X]-.5f)*100,(values_[P_BOX_STROKE_OFFSET_Y]-.5f)*100); glUniform1f(u("boxStrokeEnabled"),values_[P_BOX_STROKE]); glUniform1f(u("strokePosition"),values_[P_BOX_STROKE_POSITION]);
+  float effectiveMotion=values_[P_MOTION]; if(values_[P_PLAYBACK_STYLE]>.5f){if(effectiveMotion==1.0f||effectiveMotion==2.0f)effectiveMotion=5.0f;else if(effectiveMotion==3.0f||effectiveMotion==4.0f)effectiveMotion=6.0f;}
+  glUniform1f(u("rotationRad"),values_[P_ROTATION]*1.57079632679f); glUniform1f(u("globalScale"),.25f+values_[P_SCALE]*1.5f); glUniform1f(u("elapsed"),float(elapsed_)); glUniform1f(u("motionMode"),effectiveMotion); glUniform1f(u("motionSpeed"),20+values_[P_SPEED]*600); glUniform1f(u("loopGap"),values_[P_LOOP_GAP]*viewportWidth_*.5f);
   glUniform1f(u("flickerMode"),values_[P_FLICKER]); glUniform1f(u("flickerSpeed"),.2f+values_[P_FLICKER_SPEED]*18); glUniform1f(u("flickerAmount"),values_[P_FLICKER_AMOUNT]); glUniform1f(u("flickerMinimum"),values_[P_FLICKER_MIN]); glUniform1f(u("wiggleEnabled"),values_[P_WIGGLE]); glUniform2f(u("wiggleAmount"),values_[P_WIGGLE_X]*20,values_[P_WIGGLE_Y]*20); glUniform1f(u("wiggleRotation"),values_[P_WIGGLE_ROTATION]); glUniform1f(u("wiggleSpeed"),.2f+values_[P_WIGGLE_SPEED]*15); glUniform2f(u("entranceOffset"),inOffsetX,inOffsetY);
   glEnable(GL_BLEND); glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA); quad_.Draw(); glDisable(GL_BLEND); glBindTexture(GL_TEXTURE_2D,0); return FF_SUCCESS;
 }
@@ -318,7 +331,8 @@ FFResult BRRunningText::SetFloatParameter(unsigned int i,float v){
   if(i==P_FONT_LIST&&!fonts_.empty()){unsigned n=std::min<unsigned>(unsigned(v+.5f),unsigned(fonts_.size()-1));fontName_=fonts_[n];textureDirty_=true;RaiseParamEvent(P_FONT_NAME,FF_EVENT_FLAG_VALUE);}
   if(i==P_REFRESH_FONTS&&v!=0){enumerateFonts();}
   if(i==P_START&&v!=0){visible_=true;paused_=false;manualOut_=false;elapsed_=0;lastFrame_=std::chrono::steady_clock::now();}
-  if(i==P_PAUSE&&v!=0){paused_=!paused_;lastFrame_=std::chrono::steady_clock::now();}
+  if(i==P_PAUSE&&v!=0){paused_=true;lastFrame_=std::chrono::steady_clock::now();}
+  if(i==P_RESUME&&v!=0){visible_=true;paused_=false;lastFrame_=std::chrono::steady_clock::now();}
   if(i==P_END&&v!=0){if(values_[P_ANIM_OUT]>.5f){manualOut_=true;paused_=false;elapsed_=0;lastFrame_=std::chrono::steady_clock::now();}else visible_=false;}
   if(i==P_RESET&&v!=0){elapsed_=0;manualOut_=false;}
   if(i==P_PLAY_OUT&&v!=0){manualOut_=true;paused_=false;elapsed_=0;lastFrame_=std::chrono::steady_clock::now();}
