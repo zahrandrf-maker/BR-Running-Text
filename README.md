@@ -1,4 +1,4 @@
-# BR Running Text — V0.1.1 Beta
+# BR Running Text — V0.1.8 Beta
 
 Source FFGL transparan untuk Resolume Arena/Avenue di Windows. Dibuat oleh
 **BELAJAR RESOLUME**.
@@ -21,7 +21,7 @@ Source FFGL transparan untuk Resolume Arena/Avenue di Windows. Dibuat oleh
 3. Buka tab **Actions** lalu pilih **Build BR Running Text**.
 4. Klik **Run workflow**.
 5. Setelah selesai, buka job build dan unduh artifact
-`BR-Running-Text-Windows-v0.1.1-beta`.
+`BR-Running-Text-Windows-v0.1.8-beta`.
 
 Tidak perlu menginstal Visual Studio di komputer Anda. GitHub Actions akan
 mengambil FFGL SDK resmi dan membangun DLL Windows x64.
@@ -31,7 +31,7 @@ mengambil FFGL SDK resmi dan membangun DLL Windows x64.
 1. Tutup Resolume.
 2. Salin `BR Running Text.dll` ke folder plugin FFGL Resolume Anda.
 3. Buka Resolume kembali.
-4. Cari **BR Running Text** pada daftar Sources.
+4. Buka panel **Sources** (bukan Effects), lalu cari **BR Running Text**.
 5. Tarik source ke sebuah clip pada layer tersendiri.
 
 Lokasi plugin yang umum:
@@ -39,6 +39,8 @@ Lokasi plugin yang umum:
 `Documents\\Resolume Arena\\Extra Effects`
 
 Jika plugin belum terlihat, periksa lokasi plugin pada Preferences Resolume.
+Pastikan file tidak masih berada di dalam ZIP dan restart Resolume setelah
+menyalin DLL.
 
 ## Cara penggunaan
 
@@ -62,6 +64,42 @@ Jika plugin belum terlihat, periksa lokasi plugin pada Preferences Resolume.
   dan panjang teks sebelum didistribusikan sebagai produk final.
 
 ## Changelog
+
+### V0.1.8 Beta
+
+- Menautkan GLEW secara statis agar plugin dapat dimuat sebagai satu DLL tanpa
+  membutuhkan `glew32.dll` terpisah.
+- Menambahkan pemeriksaan otomatis export `plugMain` dan dependensi pada
+  GitHub Actions sebelum artifact diterbitkan.
+
+### V0.1.7 Beta
+
+- Menghindari konflik nama fungsi `clamp01` dengan FFGL SDK dan membersihkan
+  peringatan penyalinan parameter teks.
+
+### V0.1.6 Beta
+
+- Memulihkan deklarasi GDI/metafile yang dibatasi oleh header internal FFGL.
+
+### V0.1.5 Beta
+
+- Menambahkan deklarasi COM `objidl.h`/`ole2.h` dan library `ole32` yang
+  dibutuhkan GDI+ pada Windows SDK terbaru.
+
+### V0.1.4 Beta
+
+- Memuat `windows.h` dan `wingdi.h` sebelum FFGL/GDI+ agar seluruh konstanta
+  metafile Windows tersedia pada Windows SDK terbaru.
+
+### V0.1.3 Beta
+
+- Memperbaiki kompilasi GDI+: menghapus `WIN32_LEAN_AND_MEAN` agar deklarasi
+  metafile GDI yang dibutuhkan oleh GDI+ tetap tersedia.
+
+### V0.1.2 Beta
+
+- Memperbaiki tahap Configure: target GLEW sekarang dibuat pada scope CMake
+  proyek utama sebelum target plugin ditautkan.
 
 ### V0.1.1 Beta
 

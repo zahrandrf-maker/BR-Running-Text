@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(BRRunningText VERSION 0.1.7 LANGUAGES CXX)
+project(BRRunningText VERSION 0.1.8 LANGUAGES CXX)
 
 if(NOT WIN32)
   message(FATAL_ERROR "BR Running Text currently supports Windows only")
@@ -7,6 +7,7 @@ endif()
 include(FetchContent)
 # Resolve GLEW in the top-level directory. Imported CMake targets created only
 # inside FFGL's subdirectory are not visible back in this parent directory.
+set(GLEW_USE_STATIC_LIBS TRUE)
 find_package(GLEW REQUIRED)
 set(FFGL_BUILD_EXAMPLE_PLUGINS OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
