@@ -1,4 +1,4 @@
-# BR Running Text — V0.2.1 Beta
+# BR Running Text — V0.3.0 Beta
 
 Source FFGL transparan untuk Resolume Arena/Avenue di Windows. Dibuat oleh
 **BELAJAR RESOLUME**.
@@ -21,7 +21,7 @@ Source FFGL transparan untuk Resolume Arena/Avenue di Windows. Dibuat oleh
 3. Buka tab **Actions** lalu pilih **Build BR Running Text**.
 4. Klik **Run workflow**.
 5. Setelah selesai, buka job build dan unduh artifact
-`BR-Running-Text-Windows-v0.2.1-beta`.
+`BR-Running-Text-Windows-v0.3.0-beta`.
 
 Tidak perlu menginstal Visual Studio di komputer Anda. GitHub Actions akan
 mengambil FFGL SDK resmi dan membangun DLL Windows x64.
@@ -44,8 +44,12 @@ menyalin DLL.
 
 ## Cara penggunaan
 
+- `Continuous Repeat` mengulang teks tanpa putus dan merupakan mode default.
+- `Show Separator |` menampilkan atau menyembunyikan pemisah antar pengulangan.
+- `Continuous Loop Gap` mengatur jarak antar salinan teks pada mode Continuous.
+- `Single Repeat` menampilkan satu salinan, membiarkannya keluar seluruhnya, lalu mengulang.
 - Tanpa Enter: teks dianggap sebagai running text satu baris.
-- Menggunakan Enter: teks menjadi multiline untuk mode credit Up/Down.
+- Enter asli yang diteruskan host menjadi baris baru untuk credit Up/Down.
 - Motion `Static`: digunakan sebagai lower third.
 - Animation In/Out dalam keadaan Off secara default.
 - `Reset Position` mengulang waktu motion dan animasi.
@@ -56,14 +60,24 @@ menyalin DLL.
 - Target awal: Windows 10/11 x64 dan Resolume 7.23.2 atau lebih baru.
 - Font harus tersedia pada komputer yang menjalankan Resolume. Jika tidak
   ditemukan, plugin otomatis memakai Arial.
-- Credit `Effect by Belajar Resolume` tersimpan permanen di metadata dan baris
-  parameter terakhir; credit tidak muncul pada output video.
+- Grup `Credit` menampilkan identitas tetap `Effect by Belajar Resolume`.
+  Perubahan terhadap isinya diabaikan oleh plugin dan credit tidak muncul pada output video.
 - Resolume mengatur sendiri tampilan panel parameter, sehingga baris credit
   tidak dapat dipaksa menggunakan warna UI terbalik.
 - Versi beta ini perlu diuji dengan beberapa resolusi composition, GPU, font,
   dan panjang teks sebelum didistribusikan sebagai produk final.
 
 ## Changelog
+
+### V0.3.0 Beta
+
+- Box default memenuhi lebar composition 1920 dan tetap dapat disesuaikan.
+- Continuous Repeat menjadi default, dengan separator `|` opsional dan Loop Gap.
+- Menambahkan Single Repeat untuk satu teks yang keluar penuh sebelum kembali.
+- Menghapus seluruh nomor urut dari nama parameter.
+- Mengubah bagian branding menjadi grup `Credit` dengan teks tetap
+  `Effect by Belajar Resolume`, tanpa tombol aksi.
+- Mengganti ID internal plugin agar parameter versi lama tidak tercampur cache.
 
 ### V0.2.1 Beta
 

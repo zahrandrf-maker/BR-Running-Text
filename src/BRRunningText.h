@@ -24,7 +24,7 @@ private:
   void releaseTextTexture();
   void addOption(unsigned int parameter, unsigned int element, const char* name, float value);
 
-  std::string text_ = "BR RUNNING TEXT";
+  std::string text_ = "Belajar Resolume";
   std::string fontName_ = "Arial";
   std::string credit_ = "Effect by Belajar Resolume";
   std::vector<std::string> fonts_;
