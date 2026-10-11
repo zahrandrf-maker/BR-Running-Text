@@ -43,6 +43,7 @@ private:
   double elapsed_ = 0.0;
   bool paused_ = false;
   bool manualOut_ = false;
+  bool visible_ = true;
 
   ffglex::FFGLShader shader_;
   ffglex::FFGLScreenQuad quad_;

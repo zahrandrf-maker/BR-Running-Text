@@ -1,4 +1,4 @@
-# BR Running Text — V0.1.8 Beta
+# BR Running Text — V0.2.0 Beta
 
 Source FFGL transparan untuk Resolume Arena/Avenue di Windows. Dibuat oleh
 **BELAJAR RESOLUME**.
@@ -21,7 +21,7 @@ Source FFGL transparan untuk Resolume Arena/Avenue di Windows. Dibuat oleh
 3. Buka tab **Actions** lalu pilih **Build BR Running Text**.
 4. Klik **Run workflow**.
 5. Setelah selesai, buka job build dan unduh artifact
-`BR-Running-Text-Windows-v0.1.8-beta`.
+`BR-Running-Text-Windows-v0.2.0-beta`.
 
 Tidak perlu menginstal Visual Studio di komputer Anda. GitHub Actions akan
 mengambil FFGL SDK resmi dan membangun DLL Windows x64.
@@ -64,6 +64,16 @@ menyalin DLL.
   dan panjang teks sebelum didistribusikan sebagai produk final.
 
 ## Changelog
+
+### V0.2.0 Beta
+
+- Memperkuat upload tekstur teks GDI+ ke OpenGL agar tidak dipengaruhi state
+  pixel-store milik host.
+- Menambahkan grup parameter yang dapat dilipat: Text Setting, Box Setting,
+  Animation, Effect, dan Animation In Out.
+- Menambahkan tombol Start, Pause/Resume, dan End. Source aktif otomatis saat
+  ditambahkan.
+- Mengubah credit menjadi tombol metadata non-editable.
 
 ### V0.1.8 Beta
 

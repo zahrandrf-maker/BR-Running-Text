@@ -42,7 +42,7 @@ enum Param : FFUInt32 {
   P_BOX_STROKE_B, P_BOX_STROKE_A, P_BOX_STROKE_POSITION,
   P_BOX_STROKE_OFFSET_X, P_BOX_STROKE_OFFSET_Y,
   P_POS_X, P_POS_Y, P_SCALE, P_ROTATION,
-  P_MOTION, P_SPEED, P_PAUSE, P_LOOP_GAP, P_EDGE_DELAY, P_RESET,
+  P_MOTION, P_SPEED, P_START, P_PAUSE, P_END, P_LOOP_GAP, P_EDGE_DELAY, P_RESET,
   P_FLICKER, P_FLICKER_SPEED, P_FLICKER_AMOUNT, P_FLICKER_MIN,
   P_WIGGLE, P_WIGGLE_X, P_WIGGLE_Y, P_WIGGLE_ROTATION, P_WIGGLE_SPEED,
   P_ANIM_IN, P_IN_AXIS, P_IN_INVERT, P_IN_DISTANCE, P_IN_DURATION, P_IN_DELAY, P_IN_EASE,
@@ -54,7 +54,7 @@ enum Param : FFUInt32 {
 
 static CFFGLPluginInfo PluginInfo(
   PluginFactory<BRRunningText>, "BRRT", "BR Running Text",
-  2, 1, 0, 100, FF_SOURCE,
+  2, 1, 0, 200, FF_SOURCE,
   "Running text, credits and lower thirds by BELAJAR RESOLUME",
   "Effect by Belajar Resolume");
 
@@ -195,12 +195,12 @@ BRRunningText::BRRunningText() : values_(P_COUNT, 0.0f) {
   values_[P_TEXT_B]=1.0f; values_[P_TEXT_A]=1.0f;
   values_[P_TEXT_STROKE_WIDTH]=0.08f; values_[P_TEXT_STROKE_B]=0.0f; values_[P_TEXT_STROKE_A]=1.0f;
   values_[P_BOX_MODE]=1.0f; values_[P_BOX_WIDTH]=0.75f; values_[P_BOX_HEIGHT]=0.18f;
-  values_[P_PAD_X]=0.03f; values_[P_PAD_Y]=0.025f; values_[P_BOX_A]=0.75f; values_[P_RADIUS]=0.04f;
+  values_[P_PAD_X]=0.03f; values_[P_PAD_Y]=0.025f; values_[P_BOX_B]=0.12f; values_[P_BOX_A]=0.85f; values_[P_RADIUS]=0.04f;
   values_[P_BOX_STROKE_WIDTH]=0.02f; values_[P_BOX_STROKE_B]=1.0f; values_[P_BOX_STROKE_A]=1.0f;
   values_[P_BOX_STROKE_POSITION]=1.0f;
   values_[P_BOX_STROKE_OFFSET_X]=0.5f; values_[P_BOX_STROKE_OFFSET_Y]=0.5f;
   values_[P_POS_X]=0.5f; values_[P_POS_Y]=0.5f; values_[P_SCALE]=0.5f;
-  values_[P_SPEED]=0.18f; values_[P_FLICKER_SPEED]=0.2f; values_[P_FLICKER_AMOUNT]=0.5f;
+  values_[P_MOTION]=1.0f; values_[P_SPEED]=0.18f; values_[P_FLICKER_SPEED]=0.2f; values_[P_FLICKER_AMOUNT]=0.5f;
   values_[P_FLICKER_MIN]=0.25f; values_[P_WIGGLE_SPEED]=0.15f;
   values_[P_IN_DISTANCE]=1.0f; values_[P_IN_DURATION]=0.25f; values_[P_OUT_DISTANCE]=1.0f;
   values_[P_OUT_DURATION]=0.25f; values_[P_HOLD_DURATION]=0.5f;
@@ -225,8 +225,8 @@ BRRunningText::BRRunningText() : values_(P_COUNT, 0.0f) {
   SetParamInfof(P_BOX_STROKE_OFFSET_X,"24 Stroke Offset X",FF_TYPE_STANDARD); SetParamInfof(P_BOX_STROKE_OFFSET_Y,"25 Stroke Offset Y",FF_TYPE_STANDARD);
   SetParamInfof(P_POS_X,"26 Position X",FF_TYPE_XPOS); SetParamInfof(P_POS_Y,"27 Position Y",FF_TYPE_YPOS); SetParamInfof(P_SCALE,"28 Scale",FF_TYPE_STANDARD);
   SetOptionParamInfo(P_ROTATION,"29 Rotation",4,0); addOption(P_ROTATION,0,"0 degrees",0); addOption(P_ROTATION,1,"90 degrees",1); addOption(P_ROTATION,2,"180 degrees",2); addOption(P_ROTATION,3,"270 degrees",3);
-  SetOptionParamInfo(P_MOTION,"30 Motion",7,0); const char* motions[]={"Static","Left","Right","Up Credit","Down Credit","Bounce Horizontal","Bounce Vertical"}; for(unsigned i=0;i<7;++i)addOption(P_MOTION,i,motions[i],float(i));
-  SetParamInfof(P_SPEED,"31 Motion Speed",FF_TYPE_STANDARD); SetParamInfof(P_PAUSE,"32 Pause Motion",FF_TYPE_BOOLEAN); SetParamInfof(P_LOOP_GAP,"33 Loop Gap",FF_TYPE_STANDARD); SetParamInfof(P_EDGE_DELAY,"34 Edge Delay",FF_TYPE_STANDARD); SetParamInfof(P_RESET,"35 Reset Position",FF_TYPE_EVENT);
+  SetOptionParamInfo(P_MOTION,"30 Motion",7,1); const char* motions[]={"Static","Left","Right","Up Credit","Down Credit","Bounce Horizontal","Bounce Vertical"}; for(unsigned i=0;i<7;++i)addOption(P_MOTION,i,motions[i],float(i));
+  SetParamInfof(P_SPEED,"31 Motion Speed",FF_TYPE_STANDARD); SetParamInfof(P_START,"32 Start",FF_TYPE_EVENT); SetParamInfof(P_PAUSE,"33 Pause Resume",FF_TYPE_EVENT); SetParamInfof(P_END,"34 End",FF_TYPE_EVENT); SetParamInfof(P_LOOP_GAP,"35 Loop Gap",FF_TYPE_STANDARD); SetParamInfof(P_EDGE_DELAY,"36 Edge Delay",FF_TYPE_STANDARD); SetParamInfof(P_RESET,"37 Reset Position",FF_TYPE_EVENT);
   SetOptionParamInfo(P_FLICKER,"36 Flicker",4,0); addOption(P_FLICKER,0,"Off",0); addOption(P_FLICKER,1,"Sequential",1); addOption(P_FLICKER,2,"Random",2); addOption(P_FLICKER,3,"All",3);
   SetParamInfof(P_FLICKER_SPEED,"37 Flicker Speed",FF_TYPE_STANDARD); SetParamInfof(P_FLICKER_AMOUNT,"38 Flicker Amount",FF_TYPE_STANDARD); SetParamInfof(P_FLICKER_MIN,"39 Flicker Minimum",FF_TYPE_STANDARD);
   SetParamInfof(P_WIGGLE,"40 Wiggle",FF_TYPE_BOOLEAN); SetParamInfof(P_WIGGLE_X,"41 Wiggle X",FF_TYPE_STANDARD); SetParamInfof(P_WIGGLE_Y,"42 Wiggle Y",FF_TYPE_STANDARD); SetParamInfof(P_WIGGLE_ROTATION,"43 Wiggle Rotation",FF_TYPE_STANDARD); SetParamInfof(P_WIGGLE_SPEED,"44 Wiggle Speed",FF_TYPE_STANDARD);
@@ -234,7 +234,14 @@ BRRunningText::BRRunningText() : values_(P_COUNT, 0.0f) {
   SetOptionParamInfo(P_IN_EASE,"51 In Easing",4,3); const char* ease[]={"Linear","Ease In","Ease Out","Ease In Out"}; for(unsigned i=0;i<4;++i)addOption(P_IN_EASE,i,ease[i],float(i));
   SetParamInfof(P_ANIM_OUT,"52 Animation Out",FF_TYPE_BOOLEAN); SetOptionParamInfo(P_OUT_AXIS,"53 Out Axis",2,0); addOption(P_OUT_AXIS,0,"Scroll X",0); addOption(P_OUT_AXIS,1,"Scroll Y",1); SetParamInfof(P_OUT_INVERT,"54 Invert Out",FF_TYPE_BOOLEAN); SetParamInfof(P_OUT_DISTANCE,"55 Out Distance",FF_TYPE_STANDARD); SetParamInfof(P_OUT_DURATION,"56 Out Duration",FF_TYPE_STANDARD); SetParamInfof(P_OUT_DELAY,"57 Out Delay",FF_TYPE_STANDARD);
   SetOptionParamInfo(P_OUT_EASE,"58 Out Easing",4,3); for(unsigned i=0;i<4;++i)addOption(P_OUT_EASE,i,ease[i],float(i)); SetOptionParamInfo(P_OUT_TRIGGER,"59 Out Trigger",2,0); addOption(P_OUT_TRIGGER,0,"Manual",0); addOption(P_OUT_TRIGGER,1,"Auto Timer",1); SetParamInfof(P_HOLD_DURATION,"60 Hold Duration",FF_TYPE_STANDARD); SetParamInfof(P_PLAY_OUT,"61 Play Out",FF_TYPE_EVENT);
-  SetParamInfo(P_CREDIT,"99 Effect by Belajar Resolume",FF_TYPE_TEXT,credit_.c_str());
+  SetParamInfof(P_CREDIT,"Effect by Belajar Resolume",FF_TYPE_EVENT);
+
+  for(unsigned int i=P_TEXT;i<=P_TEXT_STROKE_A;++i) SetParamGroup(i,"Text Setting");
+  for(unsigned int i=P_BOX_MODE;i<=P_ROTATION;++i) SetParamGroup(i,"Box Setting");
+  for(unsigned int i=P_MOTION;i<=P_RESET;++i) SetParamGroup(i,"Animation");
+  for(unsigned int i=P_FLICKER;i<=P_WIGGLE_SPEED;++i) SetParamGroup(i,"Effect");
+  for(unsigned int i=P_ANIM_IN;i<=P_PLAY_OUT;++i) SetParamGroup(i,"Animation In Out");
+  SetParamGroup(P_CREDIT,"BELAJAR RESOLUME");
   started_=lastFrame_=std::chrono::steady_clock::now();
 }
 
@@ -275,11 +282,14 @@ void BRRunningText::rebuildTextTexture(){
   if(stroke>0){ Pen pen(hsbaToColor(P_TEXT_STROKE_H,P_TEXT_STROKE_S,P_TEXT_STROKE_B,P_TEXT_STROKE_A),stroke); pen.SetLineJoin(LineJoinRound); g.DrawPath(&pen,&draw); }
   SolidBrush fill(hsbaToColor(P_TEXT_H,P_TEXT_S,P_TEXT_B,P_TEXT_A)); g.FillPath(&fill,&draw);
   Rect lockRect(0,0,textWidth_,textHeight_); BitmapData data{}; bmp.LockBits(&lockRect,ImageLockModeRead,PixelFormat32bppARGB,&data);
+  GLint previousTexture=0, previousAlignment=4, previousRowLength=0;
+  glGetIntegerv(GL_TEXTURE_BINDING_2D,&previousTexture); glGetIntegerv(GL_UNPACK_ALIGNMENT,&previousAlignment); glGetIntegerv(GL_UNPACK_ROW_LENGTH,&previousRowLength);
   glGenTextures(1,&textTexture_); glBindTexture(GL_TEXTURE_2D,textTexture_); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-  glPixelStorei(GL_UNPACK_ALIGNMENT,4); glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,textWidth_,textHeight_,0,GL_BGRA,GL_UNSIGNED_BYTE,data.Scan0); glBindTexture(GL_TEXTURE_2D,0); bmp.UnlockBits(&data);
+  glPixelStorei(GL_UNPACK_ALIGNMENT,4); glPixelStorei(GL_UNPACK_ROW_LENGTH,0); glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,textWidth_,textHeight_,0,GL_BGRA,GL_UNSIGNED_BYTE,data.Scan0); glPixelStorei(GL_UNPACK_ALIGNMENT,previousAlignment); glPixelStorei(GL_UNPACK_ROW_LENGTH,previousRowLength); glBindTexture(GL_TEXTURE_2D,static_cast<GLuint>(previousTexture)); bmp.UnlockBits(&data);
 }
 
 FFResult BRRunningText::ProcessOpenGL(ProcessOpenGLStruct*){
+  if(!visible_) return FF_SUCCESS;
   if(textureDirty_) rebuildTextTexture();
   auto now=std::chrono::steady_clock::now(); double dt=std::chrono::duration<double>(now-lastFrame_).count(); lastFrame_=now; if(!paused_) elapsed_+=std::min(dt,0.1);
   float boxW=values_[P_BOX_WIDTH]*viewportWidth_, boxH=values_[P_BOX_HEIGHT]*viewportHeight_;
@@ -290,7 +300,7 @@ FFResult BRRunningText::ProcessOpenGL(ProcessOpenGLStruct*){
   float inOffsetX=0,inOffsetY=0; double t=elapsed_;
   if(values_[P_ANIM_IN]>0.5f){float delay=values_[P_IN_DELAY]*5, dur=0.05f+values_[P_IN_DURATION]*5; float k=ease(float((t-delay)/dur),int(values_[P_IN_EASE]+.5f)); float dist=values_[P_IN_DISTANCE]*(values_[P_IN_AXIS]<.5f?viewportWidth_:viewportHeight_); float off=(1-k)*dist*(values_[P_IN_INVERT]>.5f?1:-1); if(values_[P_IN_AXIS]<.5f)inOffsetX=off;else inOffsetY=off;}
   bool autoOut=values_[P_OUT_TRIGGER]>.5f; float inEnd=values_[P_IN_DELAY]*5+0.05f+values_[P_IN_DURATION]*5; float outStart=autoOut?inEnd+values_[P_HOLD_DURATION]*20+values_[P_OUT_DELAY]*5:0;
-  if(values_[P_ANIM_OUT]>.5f && ((autoOut&&t>=outStart)||manualOut_)){double base=manualOut_?0:outStart; float dur=.05f+values_[P_OUT_DURATION]*5; float k=ease(float((t-base)/dur),int(values_[P_OUT_EASE]+.5f)); float dist=values_[P_OUT_DISTANCE]*(values_[P_OUT_AXIS]<.5f?viewportWidth_:viewportHeight_); float off=k*dist*(values_[P_OUT_INVERT]>.5f?-1:1); if(values_[P_OUT_AXIS]<.5f)inOffsetX=off;else inOffsetY=off;}
+  if(values_[P_ANIM_OUT]>.5f && ((autoOut&&t>=outStart)||manualOut_)){double base=manualOut_?0:outStart; float dur=.05f+values_[P_OUT_DURATION]*5; float k=ease(float((t-base)/dur),int(values_[P_OUT_EASE]+.5f)); float dist=values_[P_OUT_DISTANCE]*(values_[P_OUT_AXIS]<.5f?viewportWidth_:viewportHeight_); float off=k*dist*(values_[P_OUT_INVERT]>.5f?-1:1); if(values_[P_OUT_AXIS]<.5f)inOffsetX=off;else inOffsetY=off; if(k>=1.0f)visible_=false;}
   float boxRgb[3], strokeRgb[3]; HSVtoRGB(values_[P_BOX_H],values_[P_BOX_S],values_[P_BOX_B],boxRgb[0],boxRgb[1],boxRgb[2]); HSVtoRGB(values_[P_BOX_STROKE_H],values_[P_BOX_STROKE_S],values_[P_BOX_STROKE_B],strokeRgb[0],strokeRgb[1],strokeRgb[2]);
   ScopedShaderBinding bind(shader_.GetGLID()); glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D,textTexture_);
   auto u=[&](const char* n){return shader_.FindUniform(n);};
@@ -304,15 +314,17 @@ FFResult BRRunningText::ProcessOpenGL(ProcessOpenGLStruct*){
 FFResult BRRunningText::DeInitGL(){ releaseTextTexture(); shader_.FreeGLResources(); quad_.Release(); return FF_SUCCESS; }
 
 FFResult BRRunningText::SetFloatParameter(unsigned int i,float v){
-  if(i>=P_COUNT||i==P_CREDIT)return FF_FAIL; values_[i]=v;
+  if(i>=P_COUNT)return FF_FAIL; if(i==P_CREDIT)return FF_SUCCESS; values_[i]=v;
   if(i==P_FONT_LIST&&!fonts_.empty()){unsigned n=std::min<unsigned>(unsigned(v+.5f),unsigned(fonts_.size()-1));fontName_=fonts_[n];textureDirty_=true;RaiseParamEvent(P_FONT_NAME,FF_EVENT_FLAG_VALUE);}
   if(i==P_REFRESH_FONTS&&v!=0){enumerateFonts();}
+  if(i==P_START&&v!=0){visible_=true;paused_=false;manualOut_=false;elapsed_=0;lastFrame_=std::chrono::steady_clock::now();}
+  if(i==P_PAUSE&&v!=0){paused_=!paused_;lastFrame_=std::chrono::steady_clock::now();}
+  if(i==P_END&&v!=0){if(values_[P_ANIM_OUT]>.5f){manualOut_=true;paused_=false;elapsed_=0;lastFrame_=std::chrono::steady_clock::now();}else visible_=false;}
   if(i==P_RESET&&v!=0){elapsed_=0;manualOut_=false;}
-  if(i==P_PLAY_OUT&&v!=0){manualOut_=true;elapsed_=0;}
-  if(i==P_PAUSE)paused_=v>.5f;
+  if(i==P_PLAY_OUT&&v!=0){manualOut_=true;paused_=false;elapsed_=0;lastFrame_=std::chrono::steady_clock::now();}
   if((i>=P_FONT_SIZE&&i<=P_TEXT_STROKE_A)||i==P_FONT_LIST)textureDirty_=true;
   return FF_SUCCESS;
 }
 float BRRunningText::GetFloatParameter(unsigned int i){return i<P_COUNT?values_[i]:0;}
 FFResult BRRunningText::SetTextParameter(unsigned int i,const char* v){if(i==P_TEXT){text_=v?v:"";textureDirty_=true;return FF_SUCCESS;}if(i==P_FONT_NAME){fontName_=v?v:"Arial";textureDirty_=true;return FF_SUCCESS;}return FF_FAIL;}
-char* BRRunningText::GetTextParameter(unsigned int i){static char buffer[8192];const std::string* s=i==P_TEXT?&text_:i==P_FONT_NAME?&fontName_:&credit_;const size_t length=std::min(s->size(),sizeof(buffer)-1);std::memcpy(buffer,s->data(),length);buffer[length]=0;return buffer;}
+char* BRRunningText::GetTextParameter(unsigned int i){static char buffer[8192];const std::string* s=i==P_TEXT?&text_:&fontName_;const size_t length=std::min(s->size(),sizeof(buffer)-1);std::memcpy(buffer,s->data(),length);buffer[length]=0;return buffer;}
