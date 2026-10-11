@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(BRRunningText VERSION 0.1.0 LANGUAGES CXX)
+project(BRRunningText VERSION 0.1.1 LANGUAGES CXX)
 
 if(NOT WIN32)
   message(FATAL_ERROR "BR Running Text currently supports Windows only")
@@ -23,7 +23,10 @@ add_library(BRRunningText SHARED
 
 target_compile_features(BRRunningText PRIVATE cxx_std_17)
 target_compile_definitions(BRRunningText PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
-target_link_libraries(BRRunningText PRIVATE ffgl::sdk gdiplus opengl32)
+# BRRunningText.cpp includes FFGLSDK.h, whose public FFGL headers include
+# GL/glew.h. Link GLEW directly so its include directory is available while
+# compiling this target as well as while linking the SDK.
+target_link_libraries(BRRunningText PRIVATE ffgl::sdk GLEW::GLEW gdiplus opengl32)
 target_include_directories(BRRunningText PRIVATE ${ffgl_SOURCE_DIR}/source/lib)
 
 set_target_properties(BRRunningText PROPERTIES
