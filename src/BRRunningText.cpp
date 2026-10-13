@@ -33,7 +33,7 @@ namespace {
 enum Param : FFUInt32 {
   P_START, P_PAUSE, P_RESUME, P_END, P_PLAYBACK_STYLE,
   P_MOTION, P_REPEAT_MODE, P_SEPARATOR, P_SPEED, P_LOOP_GAP, P_EDGE_DELAY, P_RESET,
-  P_TEXT, P_FONT_NAME, P_FONT_LIST, P_REFRESH_FONTS,
+  P_EDIT_TEXT, P_TEXT, P_FONT_NAME, P_FONT_LIST, P_REFRESH_FONTS,
   P_FONT_SIZE, P_ALIGN, P_LETTER_SPACING, P_LINE_SPACING,
   P_TEXT_H, P_TEXT_S, P_TEXT_B, P_TEXT_A,
   P_TEXT_STROKE, P_TEXT_STROKE_WIDTH, P_TEXT_STROKE_SCALE, P_TEXT_STROKE_H, P_TEXT_STROKE_S,
@@ -54,8 +54,8 @@ enum Param : FFUInt32 {
 };
 
 static CFFGLPluginInfo PluginInfo(
-  PluginFactory<BRRunningText>, "BRR3", "BR Running Text",
-  2, 1, 0, 300, FF_SOURCE,
+  PluginFactory<BRRunningText>, "BRR4", "BR Running Text",
+  2, 1, 0, 400, FF_SOURCE,
   "Running text, credits and lower thirds by BELAJAR RESOLUME",
   "Effect by Belajar Resolume");
 
@@ -227,7 +227,8 @@ BRRunningText::BRRunningText() : values_(P_COUNT, 0.0f) {
   SetParamInfof(P_SEPARATOR,"Show Separator |",FF_TYPE_BOOLEAN);
   SetParamInfof(P_SPEED,"Speed",FF_TYPE_STANDARD); SetParamInfof(P_LOOP_GAP,"Continuous Loop Gap",FF_TYPE_STANDARD); SetParamInfof(P_EDGE_DELAY,"Single Edge Delay",FF_TYPE_STANDARD); SetParamInfof(P_RESET,"Restart",FF_TYPE_EVENT);
 
-  SetParamInfo(P_TEXT,"Text",FF_TYPE_TEXT,text_.c_str());
+  SetParamInfof(P_EDIT_TEXT,"Edit Text",FF_TYPE_EVENT);
+  SetParamInfo(P_TEXT,"Text Preview / Preset",FF_TYPE_TEXT,text_.c_str());
   SetParamInfo(P_FONT_NAME,"Font Search or Name",FF_TYPE_TEXT,fontName_.c_str());
   SetOptionParamInfo(P_FONT_LIST,"Installed Font",static_cast<unsigned int>(std::max<size_t>(fonts_.size(),1)),0.0f);
   if(fonts_.empty()) addOption(P_FONT_LIST,0,"Arial",0); else for(unsigned int i=0;i<fonts_.size();++i) addOption(P_FONT_LIST,i,fonts_[i].c_str(),float(i));
@@ -256,7 +257,7 @@ BRRunningText::BRRunningText() : values_(P_COUNT, 0.0f) {
   SetOptionParamInfo(P_OUT_EASE,"Out Easing",4,3); for(unsigned i=0;i<4;++i)addOption(P_OUT_EASE,i,ease[i],float(i)); SetOptionParamInfo(P_OUT_TRIGGER,"Out Trigger",2,0); addOption(P_OUT_TRIGGER,0,"Manual",0); addOption(P_OUT_TRIGGER,1,"Auto Timer",1); SetParamInfof(P_HOLD_DURATION,"Hold Duration",FF_TYPE_STANDARD); SetParamInfof(P_PLAY_OUT,"Play Out",FF_TYPE_EVENT);
   SetParamInfo(P_CREDIT,"Effect by Belajar Resolume",FF_TYPE_TEXT,credit_.c_str());
   for(unsigned int i=P_START;i<=P_RESET;++i) SetParamGroup(i,"Animation");
-  for(unsigned int i=P_TEXT;i<=P_TEXT_STROKE_A;++i) SetParamGroup(i,"Text Setting");
+  for(unsigned int i=P_EDIT_TEXT;i<=P_TEXT_STROKE_A;++i) SetParamGroup(i,"Text Setting");
   for(unsigned int i=P_BOX_MODE;i<=P_ROTATION;++i) SetParamGroup(i,"Box Setting");
   for(unsigned int i=P_FLICKER;i<=P_WIGGLE_SPEED;++i) SetParamGroup(i,"Effect");
   for(unsigned int i=P_ANIM_IN;i<=P_PLAY_OUT;++i) SetParamGroup(i,"Animation In Out");
@@ -264,8 +265,68 @@ BRRunningText::BRRunningText() : values_(P_COUNT, 0.0f) {
   started_=lastFrame_=std::chrono::steady_clock::now();
 }
 
-BRRunningText::~BRRunningText(){ if(gdiplusToken_) GdiplusShutdown(gdiplusToken_); }
+BRRunningText::~BRRunningText(){ if(editorWindow_) DestroyWindow(editorWindow_); if(gdiplusToken_) GdiplusShutdown(gdiplusToken_); }
 void BRRunningText::addOption(unsigned int p,unsigned int e,const char* n,float v){ SetParamElementInfo(p,e,n,v); }
+
+void BRRunningText::openTextEditor(){
+  if(editorWindow_){ ShowWindow(editorWindow_,SW_RESTORE); SetForegroundWindow(editorWindow_); SetFocus(editorTextBox_); return; }
+  static const wchar_t* className=L"BRRunningTextEditorWindow";
+  static bool registered=false;
+  HINSTANCE instance=GetModuleHandleW(nullptr);
+  if(!registered){
+    WNDCLASSEXW wc{}; wc.cbSize=sizeof(wc); wc.lpfnWndProc=EditorWndProc; wc.hInstance=instance;
+    wc.hCursor=LoadCursor(nullptr,IDC_ARROW); wc.hbrBackground=reinterpret_cast<HBRUSH>(COLOR_WINDOW+1); wc.lpszClassName=className;
+    registered=RegisterClassExW(&wc)!=0 || GetLastError()==ERROR_CLASS_ALREADY_EXISTS;
+  }
+  if(!registered)return;
+  editorWindow_=CreateWindowExW(WS_EX_TOOLWINDOW,className,L"BR Running Text — Text Editor",
+    WS_OVERLAPPEDWINDOW|WS_VISIBLE,CW_USEDEFAULT,CW_USEDEFAULT,760,520,nullptr,nullptr,instance,this);
+}
+
+LRESULT CALLBACK BRRunningText::EditorWndProc(HWND window,UINT message,WPARAM wParam,LPARAM lParam){
+  auto* self=reinterpret_cast<BRRunningText*>(GetWindowLongPtrW(window,GWLP_USERDATA));
+  if(message==WM_NCCREATE){
+    auto* create=reinterpret_cast<CREATESTRUCTW*>(lParam); self=reinterpret_cast<BRRunningText*>(create->lpCreateParams);
+    SetWindowLongPtrW(window,GWLP_USERDATA,reinterpret_cast<LONG_PTR>(self));
+  }
+  if(!self)return DefWindowProcW(window,message,wParam,lParam);
+  constexpr int ID_TEXT=1001,ID_UPDATE=1002,ID_CANCEL=1003;
+  switch(message){
+    case WM_CREATE:{
+      CreateWindowExW(0,L"STATIC",L"Tulis teks di bawah. Tekan Enter untuk membuat baris baru.",WS_CHILD|WS_VISIBLE,
+        16,14,700,22,window,nullptr,nullptr,nullptr);
+      self->editorTextBox_=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"",WS_CHILD|WS_VISIBLE|WS_TABSTOP|
+        ES_LEFT|ES_MULTILINE|ES_AUTOVSCROLL|ES_WANTRETURN|WS_VSCROLL,16,42,710,380,window,reinterpret_cast<HMENU>(ID_TEXT),nullptr,nullptr);
+      HWND cancel=CreateWindowExW(0,L"BUTTON",L"Cancel",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_PUSHBUTTON,
+        526,434,96,34,window,reinterpret_cast<HMENU>(ID_CANCEL),nullptr,nullptr);
+      HWND update=CreateWindowExW(0,L"BUTTON",L"Update Text",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,
+        630,434,96,34,window,reinterpret_cast<HMENU>(ID_UPDATE),nullptr,nullptr);
+      HFONT font=reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+      SendMessageW(self->editorTextBox_,WM_SETFONT,reinterpret_cast<WPARAM>(font),TRUE);
+      SendMessageW(cancel,WM_SETFONT,reinterpret_cast<WPARAM>(font),TRUE); SendMessageW(update,WM_SETFONT,reinterpret_cast<WPARAM>(font),TRUE);
+      std::wstring current=utf8ToWide(self->text_); SetWindowTextW(self->editorTextBox_,current.c_str());
+      SetFocus(self->editorTextBox_); return 0;
+    }
+    case WM_SIZE:{
+      int width=LOWORD(lParam),height=HIWORD(lParam); int buttonY=std::max(80,height-50);
+      if(self->editorTextBox_)MoveWindow(self->editorTextBox_,16,42,std::max(120,width-32),std::max(40,height-104),TRUE);
+      HWND cancel=GetDlgItem(window,ID_CANCEL),update=GetDlgItem(window,ID_UPDATE);
+      if(cancel)MoveWindow(cancel,std::max(16,width-216),buttonY,96,34,TRUE);
+      if(update)MoveWindow(update,std::max(120,width-112),buttonY,96,34,TRUE); return 0;
+    }
+    case WM_COMMAND:
+      if(LOWORD(wParam)==ID_UPDATE){
+        int length=GetWindowTextLengthW(self->editorTextBox_); std::wstring updated(static_cast<size_t>(length)+1,L'\0');
+        GetWindowTextW(self->editorTextBox_,updated.data(),length+1); updated.resize(static_cast<size_t>(length));
+        self->text_=wideToUtf8(updated); self->textureDirty_=true; self->RaiseParamEvent(P_TEXT,FF_EVENT_FLAG_VALUE);
+        DestroyWindow(window); return 0;
+      }
+      if(LOWORD(wParam)==ID_CANCEL){DestroyWindow(window);return 0;} break;
+    case WM_CLOSE: DestroyWindow(window); return 0;
+    case WM_NCDESTROY: self->editorTextBox_=nullptr; self->editorWindow_=nullptr; SetWindowLongPtrW(window,GWLP_USERDATA,0); break;
+  }
+  return DefWindowProcW(window,message,wParam,lParam);
+}
 
 void BRRunningText::enumerateFonts(){
   std::set<std::wstring> names; HDC dc=GetDC(nullptr); LOGFONTW lf{}; lf.lfCharSet=DEFAULT_CHARSET;
@@ -338,6 +399,7 @@ FFResult BRRunningText::DeInitGL(){ releaseTextTexture(); shader_.FreeGLResource
 
 FFResult BRRunningText::SetFloatParameter(unsigned int i,float v){
   if(i>=P_COUNT)return FF_FAIL; values_[i]=v;
+  if(i==P_EDIT_TEXT&&v!=0)openTextEditor();
   if(i==P_FONT_LIST&&!fonts_.empty()){unsigned n=std::min<unsigned>(unsigned(v+.5f),unsigned(fonts_.size()-1));fontName_=fonts_[n];textureDirty_=true;RaiseParamEvent(P_FONT_NAME,FF_EVENT_FLAG_VALUE);}
   if(i==P_REFRESH_FONTS&&v!=0){enumerateFonts();}
   if(i==P_START&&v!=0){visible_=true;paused_=false;manualOut_=false;elapsed_=0;lastFrame_=std::chrono::steady_clock::now();}

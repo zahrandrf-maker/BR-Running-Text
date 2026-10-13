@@ -1,4 +1,4 @@
-# BR Running Text — V0.3.0 Beta
+# BR Running Text — V0.4.0 Beta
 
 Source FFGL transparan untuk Resolume Arena/Avenue di Windows. Dibuat oleh
 **BELAJAR RESOLUME**.
@@ -21,7 +21,7 @@ Source FFGL transparan untuk Resolume Arena/Avenue di Windows. Dibuat oleh
 3. Buka tab **Actions** lalu pilih **Build BR Running Text**.
 4. Klik **Run workflow**.
 5. Setelah selesai, buka job build dan unduh artifact
-`BR-Running-Text-Windows-v0.3.0-beta`.
+`BR-Running-Text-Windows-v0.4.0-beta`.
 
 Tidak perlu menginstal Visual Studio di komputer Anda. GitHub Actions akan
 mengambil FFGL SDK resmi dan membangun DLL Windows x64.
@@ -48,8 +48,12 @@ menyalin DLL.
 - `Show Separator |` menampilkan atau menyembunyikan pemisah antar pengulangan.
 - `Continuous Loop Gap` mengatur jarak antar salinan teks pada mode Continuous.
 - `Single Repeat` menampilkan satu salinan, membiarkannya keluar seluruhnya, lalu mengulang.
+- Klik `Edit Text` untuk membuka editor teks besar yang dapat di-resize.
+- Di dalam editor, Enter selalu membuat baris baru dan tidak memperbarui output.
+- Klik `Update Text` untuk menerapkan perubahan, atau `Cancel` untuk membatalkan.
+- `Text Preview / Preset` mempertahankan kompatibilitas penyimpanan teks pada preset Resolume.
 - Tanpa Enter: teks dianggap sebagai running text satu baris.
-- Enter asli yang diteruskan host menjadi baris baru untuk credit Up/Down.
+- Dengan Enter: teks menjadi multiline untuk credit Up/Down.
 - Motion `Static`: digunakan sebagai lower third.
 - Animation In/Out dalam keadaan Off secara default.
 - `Reset Position` mengulang waktu motion dan animasi.
@@ -68,6 +72,15 @@ menyalin DLL.
   dan panjang teks sebelum didistribusikan sebagai produk final.
 
 ## Changelog
+
+### V0.4.0 Beta
+
+- Menambahkan tombol `Edit Text` yang membuka editor multiline khusus.
+- Editor dapat diperbesar ke bawah maupun ke samping.
+- Tombol Enter membuat baris baru tanpa menutup atau menerapkan editor.
+- Menambahkan tombol `Update Text` dan `Cancel`.
+- Output baru diperbarui setelah `Update Text` ditekan.
+- Mengganti ID internal plugin untuk mencegah cache parameter versi lama.
 
 ### V0.3.0 Beta
 

@@ -18,11 +18,14 @@ public:
   FFResult SetTextParameter(unsigned int index, const char* value) override;
   char* GetTextParameter(unsigned int index) override;
 
+  static LRESULT CALLBACK EditorWndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam);
+
 private:
   void enumerateFonts();
   void rebuildTextTexture();
   void releaseTextTexture();
   void addOption(unsigned int parameter, unsigned int element, const char* name, float value);
+  void openTextEditor();
 
   std::string text_ = "Belajar Resolume";
   std::string fontName_ = "Arial";
@@ -44,6 +47,8 @@ private:
   bool paused_ = false;
   bool manualOut_ = false;
   bool visible_ = true;
+  HWND editorWindow_ = nullptr;
+  HWND editorTextBox_ = nullptr;
 
   ffglex::FFGLShader shader_;
   ffglex::FFGLScreenQuad quad_;

@@ -1,6 +1,6 @@
 {
   "name": "br-running-text",
-  "version-string": "0.3.0",
+  "version-string": "0.4.0",
   "dependencies": [
     "glew"
   ]
