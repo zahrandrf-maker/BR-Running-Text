@@ -1,4 +1,4 @@
-# BR Running Text — V0.4.0 Beta
+# BR Running Text — V0.4.1 Beta
 
 Source FFGL transparan untuk Resolume Arena/Avenue di Windows. Dibuat oleh
 **BELAJAR RESOLUME**.
@@ -21,7 +21,7 @@ Source FFGL transparan untuk Resolume Arena/Avenue di Windows. Dibuat oleh
 3. Buka tab **Actions** lalu pilih **Build BR Running Text**.
 4. Klik **Run workflow**.
 5. Setelah selesai, buka job build dan unduh artifact
-`BR-Running-Text-Windows-v0.4.0-beta`.
+`BR-Running-Text-Windows-v0.4.1-beta`.
 
 Tidak perlu menginstal Visual Studio di komputer Anda. GitHub Actions akan
 mengambil FFGL SDK resmi dan membangun DLL Windows x64.
@@ -72,6 +72,15 @@ menyalin DLL.
   dan panjang teks sebelum didistribusikan sebagai produk final.
 
 ## Changelog
+
+### V0.4.1 Beta
+
+- Memindahkan Text Editor ke UI thread khusus dengan message loop Windows sendiri.
+- Mencegah editor memblokir render dan antarmuka utama Resolume.
+- Klik `Edit Text` kedua kali akan memfokuskan editor yang sudah terbuka,
+  bukan membuat beberapa jendela.
+- Menambahkan sinkronisasi aman antara editor teks dan thread render OpenGL.
+- Editor ditutup dan thread dibersihkan otomatis ketika source atau Resolume ditutup.
 
 ### V0.4.0 Beta
 

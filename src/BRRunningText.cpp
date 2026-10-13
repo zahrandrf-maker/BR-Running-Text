@@ -54,8 +54,8 @@ enum Param : FFUInt32 {
 };
 
 static CFFGLPluginInfo PluginInfo(
-  PluginFactory<BRRunningText>, "BRR4", "BR Running Text",
-  2, 1, 0, 400, FF_SOURCE,
+  PluginFactory<BRRunningText>, "BRR5", "BR Running Text",
+  2, 1, 0, 401, FF_SOURCE,
   "Running text, credits and lower thirds by BELAJAR RESOLUME",
   "Effect by Belajar Resolume");
 
@@ -265,22 +265,38 @@ BRRunningText::BRRunningText() : values_(P_COUNT, 0.0f) {
   started_=lastFrame_=std::chrono::steady_clock::now();
 }
 
-BRRunningText::~BRRunningText(){ if(editorWindow_) DestroyWindow(editorWindow_); if(gdiplusToken_) GdiplusShutdown(gdiplusToken_); }
+BRRunningText::~BRRunningText(){
+  editorStopRequested_.store(true);
+  if(HWND window=editorWindow_.load())PostMessageW(window,WM_CLOSE,0,0);
+  if(editorThread_.joinable())editorThread_.join();
+  if(gdiplusToken_)GdiplusShutdown(gdiplusToken_);
+}
 void BRRunningText::addOption(unsigned int p,unsigned int e,const char* n,float v){ SetParamElementInfo(p,e,n,v); }
 
 void BRRunningText::openTextEditor(){
-  if(editorWindow_){ ShowWindow(editorWindow_,SW_RESTORE); SetForegroundWindow(editorWindow_); SetFocus(editorTextBox_); return; }
-  static const wchar_t* className=L"BRRunningTextEditorWindow";
-  static bool registered=false;
-  HINSTANCE instance=GetModuleHandleW(nullptr);
-  if(!registered){
-    WNDCLASSEXW wc{}; wc.cbSize=sizeof(wc); wc.lpfnWndProc=EditorWndProc; wc.hInstance=instance;
-    wc.hCursor=LoadCursor(nullptr,IDC_ARROW); wc.hbrBackground=reinterpret_cast<HBRUSH>(COLOR_WINDOW+1); wc.lpszClassName=className;
-    registered=RegisterClassExW(&wc)!=0 || GetLastError()==ERROR_CLASS_ALREADY_EXISTS;
+  if(editorRunning_.load()){
+    if(HWND window=editorWindow_.load())PostMessageW(window,WM_APP+1,0,0);
+    return;
   }
-  if(!registered)return;
-  editorWindow_=CreateWindowExW(WS_EX_TOOLWINDOW,className,L"BR Running Text — Text Editor",
+  if(editorThread_.joinable())editorThread_.join();
+  editorStopRequested_.store(false); editorRunning_.store(true);
+  editorThread_=std::thread(&BRRunningText::runTextEditor,this);
+}
+
+void BRRunningText::runTextEditor(){
+  static const wchar_t* className=L"BRRunningTextEditorWindow";
+  HINSTANCE instance=GetModuleHandleW(nullptr);
+  WNDCLASSEXW wc{}; wc.cbSize=sizeof(wc); wc.lpfnWndProc=EditorWndProc; wc.hInstance=instance;
+  wc.hCursor=LoadCursor(nullptr,IDC_ARROW); wc.hbrBackground=reinterpret_cast<HBRUSH>(COLOR_WINDOW+1); wc.lpszClassName=className;
+  if(RegisterClassExW(&wc)==0 && GetLastError()!=ERROR_CLASS_ALREADY_EXISTS){editorRunning_.store(false);return;}
+  HWND window=CreateWindowExW(WS_EX_TOOLWINDOW,className,L"BR Running Text — Text Editor",
     WS_OVERLAPPEDWINDOW|WS_VISIBLE,CW_USEDEFAULT,CW_USEDEFAULT,760,520,nullptr,nullptr,instance,this);
+  if(!window){editorRunning_.store(false);return;}
+  editorWindow_.store(window);
+  if(editorStopRequested_.load())PostMessageW(window,WM_CLOSE,0,0);
+  MSG message{};
+  while(GetMessageW(&message,nullptr,0,0)>0){TranslateMessage(&message);DispatchMessageW(&message);}
+  editorWindow_.store(nullptr); editorRunning_.store(false);
 }
 
 LRESULT CALLBACK BRRunningText::EditorWndProc(HWND window,UINT message,WPARAM wParam,LPARAM lParam){
@@ -304,7 +320,8 @@ LRESULT CALLBACK BRRunningText::EditorWndProc(HWND window,UINT message,WPARAM wP
       HFONT font=reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
       SendMessageW(self->editorTextBox_,WM_SETFONT,reinterpret_cast<WPARAM>(font),TRUE);
       SendMessageW(cancel,WM_SETFONT,reinterpret_cast<WPARAM>(font),TRUE); SendMessageW(update,WM_SETFONT,reinterpret_cast<WPARAM>(font),TRUE);
-      std::wstring current=utf8ToWide(self->text_); SetWindowTextW(self->editorTextBox_,current.c_str());
+      std::string currentText; {std::lock_guard<std::mutex> lock(self->textMutex_);currentText=self->text_;}
+      std::wstring current=utf8ToWide(currentText); SetWindowTextW(self->editorTextBox_,current.c_str());
       SetFocus(self->editorTextBox_); return 0;
     }
     case WM_SIZE:{
@@ -318,12 +335,14 @@ LRESULT CALLBACK BRRunningText::EditorWndProc(HWND window,UINT message,WPARAM wP
       if(LOWORD(wParam)==ID_UPDATE){
         int length=GetWindowTextLengthW(self->editorTextBox_); std::wstring updated(static_cast<size_t>(length)+1,L'\0');
         GetWindowTextW(self->editorTextBox_,updated.data(),length+1); updated.resize(static_cast<size_t>(length));
-        self->text_=wideToUtf8(updated); self->textureDirty_=true; self->RaiseParamEvent(P_TEXT,FF_EVENT_FLAG_VALUE);
+        {std::lock_guard<std::mutex> lock(self->textMutex_);self->text_=wideToUtf8(updated);}
+        self->textureDirty_.store(true);
         DestroyWindow(window); return 0;
       }
       if(LOWORD(wParam)==ID_CANCEL){DestroyWindow(window);return 0;} break;
     case WM_CLOSE: DestroyWindow(window); return 0;
-    case WM_NCDESTROY: self->editorTextBox_=nullptr; self->editorWindow_=nullptr; SetWindowLongPtrW(window,GWLP_USERDATA,0); break;
+    case WM_APP+1: ShowWindow(window,SW_RESTORE); SetForegroundWindow(window); SetFocus(self->editorTextBox_); return 0;
+    case WM_NCDESTROY: self->editorTextBox_=nullptr; self->editorWindow_.store(nullptr); SetWindowLongPtrW(window,GWLP_USERDATA,0); PostQuitMessage(0); break;
   }
   return DefWindowProcW(window,message,wParam,lParam);
 }
@@ -337,18 +356,19 @@ void BRRunningText::enumerateFonts(){
 FFResult BRRunningText::InitGL(const FFGLViewportStruct* vp){
   viewportWidth_=vp->width; viewportHeight_=vp->height;
   if(!shader_.Compile(vertexShader,fragmentShader)||!quad_.Initialise()) return FF_FAIL;
-  rebuildTextTexture(); return CFFGLPlugin::InitGL(vp);
+  textureDirty_.store(false); rebuildTextTexture(); return CFFGLPlugin::InitGL(vp);
 }
 
 void BRRunningText::releaseTextTexture(){ if(textTexture_){ glDeleteTextures(1,&textTexture_); textTexture_=0; } }
 
 void BRRunningText::rebuildTextTexture(){
-  textureDirty_=false; releaseTextTexture();
+  releaseTextTexture();
   const float fontPx=18.0f+values_[P_FONT_SIZE]*220.0f;
-  std::string displayText=expandLineBreaks(text_);
+  std::string textCopy,fontCopy; {std::lock_guard<std::mutex> lock(textMutex_);textCopy=text_;fontCopy=fontName_;}
+  std::string displayText=expandLineBreaks(textCopy);
   if(values_[P_REPEAT_MODE]<0.5f && values_[P_SEPARATOR]>0.5f && displayText.find('\n')==std::string::npos) displayText += " |";
   std::wstring content=utf8ToWide(displayText); if(content.empty()) content=L" ";
-  std::wstring familyName=utf8ToWide(fontName_); FontFamily selectedFamily(familyName.c_str()); FontFamily fallbackFamily(L"Arial");
+  std::wstring familyName=utf8ToWide(fontCopy); FontFamily selectedFamily(familyName.c_str()); FontFamily fallbackFamily(L"Arial");
   FontFamily* family=selectedFamily.IsAvailable()?&selectedFamily:&fallbackFamily;
   StringFormat format(StringFormat::GenericTypographic()); format.SetFormatFlags(StringFormatFlagsMeasureTrailingSpaces);
   Bitmap measure(16,16,PixelFormat32bppARGB); Graphics mg(&measure); GraphicsPath path;
@@ -373,7 +393,7 @@ void BRRunningText::rebuildTextTexture(){
 
 FFResult BRRunningText::ProcessOpenGL(ProcessOpenGLStruct*){
   if(!visible_) return FF_SUCCESS;
-  if(textureDirty_) rebuildTextTexture();
+  if(textureDirty_.exchange(false)) rebuildTextTexture();
   auto now=std::chrono::steady_clock::now(); double dt=std::chrono::duration<double>(now-lastFrame_).count(); lastFrame_=now; if(!paused_) elapsed_+=std::min(dt,0.1);
   float boxW=values_[P_BOX_WIDTH]*viewportWidth_, boxH=values_[P_BOX_HEIGHT]*viewportHeight_;
   float padX=values_[P_PAD_X]*viewportWidth_*0.25f, padY=values_[P_PAD_Y]*viewportHeight_*0.25f;
@@ -400,7 +420,7 @@ FFResult BRRunningText::DeInitGL(){ releaseTextTexture(); shader_.FreeGLResource
 FFResult BRRunningText::SetFloatParameter(unsigned int i,float v){
   if(i>=P_COUNT)return FF_FAIL; values_[i]=v;
   if(i==P_EDIT_TEXT&&v!=0)openTextEditor();
-  if(i==P_FONT_LIST&&!fonts_.empty()){unsigned n=std::min<unsigned>(unsigned(v+.5f),unsigned(fonts_.size()-1));fontName_=fonts_[n];textureDirty_=true;RaiseParamEvent(P_FONT_NAME,FF_EVENT_FLAG_VALUE);}
+  if(i==P_FONT_LIST&&!fonts_.empty()){unsigned n=std::min<unsigned>(unsigned(v+.5f),unsigned(fonts_.size()-1));{std::lock_guard<std::mutex> lock(textMutex_);fontName_=fonts_[n];}textureDirty_.store(true);RaiseParamEvent(P_FONT_NAME,FF_EVENT_FLAG_VALUE);}
   if(i==P_REFRESH_FONTS&&v!=0){enumerateFonts();}
   if(i==P_START&&v!=0){visible_=true;paused_=false;manualOut_=false;elapsed_=0;lastFrame_=std::chrono::steady_clock::now();}
   if(i==P_PAUSE&&v!=0){paused_=true;lastFrame_=std::chrono::steady_clock::now();}
@@ -408,9 +428,9 @@ FFResult BRRunningText::SetFloatParameter(unsigned int i,float v){
   if(i==P_END&&v!=0){if(values_[P_ANIM_OUT]>.5f){manualOut_=true;paused_=false;elapsed_=0;lastFrame_=std::chrono::steady_clock::now();}else visible_=false;}
   if(i==P_RESET&&v!=0){elapsed_=0;manualOut_=false;}
   if(i==P_PLAY_OUT&&v!=0){manualOut_=true;paused_=false;elapsed_=0;lastFrame_=std::chrono::steady_clock::now();}
-  if((i>=P_FONT_SIZE&&i<=P_TEXT_STROKE_A)||i==P_FONT_LIST||i==P_SEPARATOR||i==P_REPEAT_MODE)textureDirty_=true;
+  if((i>=P_FONT_SIZE&&i<=P_TEXT_STROKE_A)||i==P_FONT_LIST||i==P_SEPARATOR||i==P_REPEAT_MODE)textureDirty_.store(true);
   return FF_SUCCESS;
 }
 float BRRunningText::GetFloatParameter(unsigned int i){return i<P_COUNT?values_[i]:0;}
-FFResult BRRunningText::SetTextParameter(unsigned int i,const char* v){if(i==P_TEXT){text_=v?v:"";textureDirty_=true;return FF_SUCCESS;}if(i==P_FONT_NAME){fontName_=v?v:"Arial";textureDirty_=true;return FF_SUCCESS;}if(i==P_CREDIT)return FF_SUCCESS;return FF_FAIL;}
-char* BRRunningText::GetTextParameter(unsigned int i){static char buffer[8192];const std::string* s=i==P_TEXT?&text_:(i==P_CREDIT?&credit_:&fontName_);const size_t length=std::min(s->size(),sizeof(buffer)-1);std::memcpy(buffer,s->data(),length);buffer[length]=0;return buffer;}
+FFResult BRRunningText::SetTextParameter(unsigned int i,const char* v){if(i==P_TEXT){std::lock_guard<std::mutex> lock(textMutex_);text_=v?v:"";textureDirty_.store(true);return FF_SUCCESS;}if(i==P_FONT_NAME){std::lock_guard<std::mutex> lock(textMutex_);fontName_=v?v:"Arial";textureDirty_.store(true);return FF_SUCCESS;}if(i==P_CREDIT)return FF_SUCCESS;return FF_FAIL;}
+char* BRRunningText::GetTextParameter(unsigned int i){static thread_local char buffer[8192];std::string value;if(i==P_CREDIT)value=credit_;else{std::lock_guard<std::mutex> lock(textMutex_);value=i==P_TEXT?text_:fontName_;}const size_t length=std::min(value.size(),sizeof(buffer)-1);std::memcpy(buffer,value.data(),length);buffer[length]=0;return buffer;}
